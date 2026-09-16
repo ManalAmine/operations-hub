@@ -283,7 +283,7 @@ These records are necessary for the product to continue working correctly after 
 
 ### 6.2 Storage Model
 
-A relational model is appropriate because the product has clear and stable relationships:
+Version 0.3 uses PostgreSQL through Prisma. A relational model is appropriate because the product has clear and stable relationships:
 
 * requests belong to users;
 * requests belong to departments;

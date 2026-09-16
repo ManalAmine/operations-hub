@@ -168,7 +168,7 @@ The Durable Request Store keeps the information needed by the system, including:
 * department information;
 * user roles or access permissions required by the system.
 
-This section defines the information that must be stored without defining database tables or a specific storage technology.
+Version 0.3 implements this store with PostgreSQL and Prisma. The detailed records and relationships are defined in the data model.
 
 ### Notification Service
 
