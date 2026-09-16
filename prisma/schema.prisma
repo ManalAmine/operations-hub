@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RequestStatus {
+  SUBMITTED
+  IN_PROGRESS
+  RESOLVED
+}
+
+model User {
+  id             String                 @id @default(uuid())
+  name           String
+  email          String                 @unique
+  passwordHash   String                 @map("password_hash")
+  isAdmin        Boolean                @default(false) @map("is_admin")
+  requests       Request[]              @relation("RequestRequester")
+  memberships    DepartmentMembership[]
+  statusChanges  RequestStatusEvent[]   @relation("StatusChangedBy")
+  createdAt      DateTime               @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Department {
+  id          String                 @id
+  name        String                 @unique
+  isActive    Boolean                @default(true) @map("is_active")
+  requests    Request[]
+  memberships DepartmentMembership[]
+
+  @@map("departments")
+}
+
+model DepartmentMembership {
+  userId       String     @map("user_id")
+  departmentId String     @map("department_id")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  @@id([userId, departmentId])
+  @@map("department_memberships")
+}
+
+model Request {
+  id            String               @id @default(uuid())
+  requesterId   String               @map("requester_id")
+  departmentId  String               @map("department_id")
+  title         String
+  description   String
+  currentStatus RequestStatus        @default(SUBMITTED) @map("current_status")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  resolvedAt    DateTime?            @map("resolved_at")
+  requester     User                 @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  department    Department           @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  statusEvents  RequestStatusEvent[]
+
+  @@index([requesterId, createdAt])
+  @@index([departmentId, currentStatus, createdAt])
+  @@map("requests")
+}
+
+model RequestStatusEvent {
+  id              String         @id @default(uuid())
+  requestId       String         @map("request_id")
+  fromStatus      RequestStatus? @map("from_status")
+  toStatus        RequestStatus  @map("to_status")
+  changedByUserId String         @map("changed_by_user_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  request         Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  changedBy       User           @relation("StatusChangedBy", fields: [changedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([requestId, createdAt])
+  @@map("request_status_events")
+}

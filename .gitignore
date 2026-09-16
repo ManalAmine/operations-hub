@@ -1,7 +1,9 @@
 node_modules/
 dist/
-coverage/
 .env
-*.log
-.postman/
-postman/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+test-results/
+playwright-report/
+coverage/
