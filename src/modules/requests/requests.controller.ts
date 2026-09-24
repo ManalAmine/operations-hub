@@ -12,6 +12,7 @@ import { AuthenticatedUser } from '../../auth/auth.types';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CreateRequestDto } from './dto/create-request.dto';
+import { CreateRequestCommentDto } from './dto/create-request-comment.dto';
 import { RequestResponseDto } from './dto/request-response.dto';
 import { UpdateRequestStatusDto } from './dto/update-request-status.dto';
 import { RequestsService } from './requests.service';
@@ -46,6 +47,18 @@ export class RequestsController {
   @ApiForbiddenResponse({ description: 'The user cannot access this request.' })
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('requestId') requestId: string) {
     return this.requests.findOne(user, requestId);
+  }
+
+  @Post(':requestId/comments')
+  @ApiCreatedResponse({ type: RequestResponseDto })
+  @ApiForbiddenResponse({ description: 'The user cannot access this request.' })
+  @ApiConflictResponse({ description: 'Staff messaging is unavailable unless the request is in progress, or the request is resolved and closed.' })
+  addComment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('requestId') requestId: string,
+    @Body() input: CreateRequestCommentDto,
+  ) {
+    return this.requests.addComment(user, requestId, input);
   }
 
   @Patch(':requestId/status')

@@ -42,6 +42,8 @@ export class RequestLifecycle {
         'States cannot be skipped or moved backward.',
         'expectedCurrentStatus must match the stored state before an update succeeds.',
         'Every successful transition is appended to statusHistory.',
+        'Staff messages and employee replies are optional during IN_PROGRESS only.',
+        'The conversation closes at RESOLVED.',
       ],
     };
   }

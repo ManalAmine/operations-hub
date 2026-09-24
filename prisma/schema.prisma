@@ -13,6 +13,31 @@ enum RequestStatus {
   RESOLVED
 }
 
+enum AiAnalysisStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum AiRequestType {
+  IT_HARDWARE
+  IT_NETWORK
+  IT_SOFTWARE
+  IT_ACCESS
+  HR_POLICY
+  HR_EMPLOYEE_SUPPORT
+  FINANCE_EXPENSE
+  FINANCE_PAYROLL
+  FINANCE_PAYMENT_DELAY
+  OTHER
+}
+
+enum AiUrgency {
+  LOW
+  NORMAL
+  HIGH
+}
+
 model User {
   id             String                 @id @default(uuid())
   name           String
@@ -22,6 +47,7 @@ model User {
   requests       Request[]              @relation("RequestRequester")
   memberships    DepartmentMembership[]
   statusChanges  RequestStatusEvent[]   @relation("StatusChangedBy")
+  requestComments RequestComment[]       @relation("RequestCommentAuthor")
   createdAt      DateTime               @default(now()) @map("created_at")
 
   @@map("users")
@@ -57,13 +83,55 @@ model Request {
   createdAt     DateTime             @default(now()) @map("created_at")
   updatedAt     DateTime             @updatedAt @map("updated_at")
   resolvedAt    DateTime?            @map("resolved_at")
+  resolutionNote String?             @map("resolution_note")
   requester     User                 @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
   department    Department           @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   statusEvents  RequestStatusEvent[]
+  comments      RequestComment[]
+  aiAnalysis    RequestAiAnalysis?
 
   @@index([requesterId, createdAt])
   @@index([departmentId, currentStatus, createdAt])
   @@map("requests")
+}
+
+model RequestComment {
+  id               String          @id @default(uuid())
+  requestId        String          @map("request_id")
+  authorId         String          @map("author_id")
+  replyToCommentId String?         @unique @map("reply_to_comment_id")
+  body             String
+  createdAt        DateTime        @default(now()) @map("created_at")
+  request          Request         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author           User            @relation("RequestCommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  replyTo          RequestComment? @relation("RequestCommentReply", fields: [replyToCommentId], references: [id], onDelete: Cascade)
+  employeeReply    RequestComment? @relation("RequestCommentReply")
+
+  @@index([requestId, createdAt])
+  @@map("request_comments")
+}
+
+model RequestAiAnalysis {
+  id                    String           @id @default(uuid())
+  requestId             String           @unique @map("request_id")
+  status                AiAnalysisStatus @default(PENDING)
+  requestType           AiRequestType?   @map("request_type")
+  summary               String?
+  suggestedDepartmentId String?          @map("suggested_department_id")
+  urgency               AiUrgency?
+  needsClarification    Boolean?         @map("needs_clarification")
+  clarificationQuestion String?          @map("clarification_question")
+  suggestedNextSteps    String[]         @default([]) @map("suggested_next_steps")
+  trustedContextKeys    String[]         @default([]) @map("trusted_context_keys")
+  provider              String?
+  model                 String?
+  promptVersion         String           @map("prompt_version")
+  failureCode           String?          @map("failure_code")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  completedAt           DateTime?        @map("completed_at")
+  request               Request          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("request_ai_analyses")
 }
 
 model RequestStatusEvent {

@@ -24,8 +24,8 @@ async function bootstrap(): Promise<void> {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Operations Hub API')
-    .setDescription('Week 3 service request API contract')
-    .setVersion('0.3')
+    .setDescription('Service request API with optional AI-assisted interpretation')
+    .setVersion('0.4')
     .addBearerAuth()
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));
