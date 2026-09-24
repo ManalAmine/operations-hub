@@ -20,15 +20,32 @@ export interface Department {
 
 export type RequestStatus = 'SUBMITTED' | 'IN_PROGRESS' | 'RESOLVED';
 
+export interface RequestAiAssistance {
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  requestType: string | null;
+  summary: string | null;
+  suggestedDepartmentId: string | null;
+  urgency: 'LOW' | 'NORMAL' | 'HIGH' | null;
+  needsClarification: boolean | null;
+  clarificationQuestion: string | null;
+  suggestedNextSteps: string[];
+  model: string | null;
+  promptVersion: string;
+  failureCode: string | null;
+}
+
 export interface ServiceRequest {
   id: string;
   title: string;
   description: string;
   currentStatus: RequestStatus;
+  requesterId: string;
   requesterName: string;
   departmentId: string;
   departmentName: string;
   createdAt: string;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
   allowedNextStatuses: RequestStatus[];
   statusHistory: Array<{
     id: string;
@@ -37,6 +54,15 @@ export interface ServiceRequest {
     changedByName: string;
     createdAt: string;
   }>;
+  comments: Array<{
+    id: string;
+    authorName: string;
+    authorRole: 'EMPLOYEE' | 'STAFF';
+    replyToCommentId: string | null;
+    body: string;
+    createdAt: string;
+  }>;
+  aiAssistance: RequestAiAssistance | null;
 }
 
 export class ApiError extends Error {
@@ -84,10 +110,25 @@ export const api = {
     requestId: string,
     status: RequestStatus,
     expectedCurrentStatus: RequestStatus,
+    resolutionNote?: string,
   ) =>
     call<ServiceRequest>(
       `/requests/${requestId}/status`,
-      { method: 'PATCH', body: JSON.stringify({ status, expectedCurrentStatus }) },
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status, expectedCurrentStatus, resolutionNote }),
+      },
+      token,
+    ),
+  addComment: (
+    token: string,
+    requestId: string,
+    body: string,
+    replyToCommentId?: string,
+  ) =>
+    call<ServiceRequest>(
+      `/requests/${requestId}/comments`,
+      { method: 'POST', body: JSON.stringify({ body, replyToCommentId }) },
       token,
     ),
 };

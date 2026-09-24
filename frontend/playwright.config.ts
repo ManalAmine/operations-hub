@@ -13,7 +13,11 @@ export default defineConfig({
       command: 'npm run dev',
       cwd: '..',
       url: 'http://127.0.0.1:3100/api/docs',
-      env: { PORT: '3100', FRONTEND_URL: 'http://127.0.0.1:5173' },
+      env: {
+        PORT: '3100',
+        FRONTEND_URL: 'http://127.0.0.1:5173',
+        AI_REQUESTS_ENABLED: 'false',
+      },
       reuseExistingServer: true,
       timeout: 120_000,
     },
