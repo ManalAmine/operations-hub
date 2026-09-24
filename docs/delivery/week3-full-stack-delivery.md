@@ -25,7 +25,7 @@ Swagger publishes the complete executable contract at `/api/docs`. DTO validatio
 ```json
 {
   "email": "alice@example.com",
-  "password": "Password123!"
+  "password": "<provisioned-user-password>"
 }
 ```
 
@@ -94,7 +94,7 @@ The current status update and its `RequestStatusEvent` are stored in one databas
 
 ### Backend/database integration
 
-`requests.integration-spec.ts` uses PostgreSQL. It creates a request through `RequestsService`, retrieves it through Prisma, and verifies that both the request and initial status event were persisted.
+`test/integration/requests.integration-spec.ts` uses PostgreSQL. It creates a request through `RequestsService`, retrieves it through Prisma, and verifies that both the request and initial status event were persisted.
 
 ### End-to-end flow
 

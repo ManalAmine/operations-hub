@@ -1,414 +1,207 @@
-Yes — the code block was probably making it annoying to copy. I’ll put the whole thing in **one editable writing block** so you can copy it directly.
+# Internal Operations Service Hub — Current Architecture
 
-# Internal Operations Service Hub — Architecture Draft
+## Purpose and scope
 
-## 1. Purpose
+Operations Hub is a full-stack internal service-request system. The delivered
+application supports authenticated employees, department-based staff access,
+request conversations, controlled status transitions, resolution notes, and
+optional advisory AI interpretation.
 
-The architecture describes the major actors, components, responsibilities, system boundaries, important data flows, external dependencies, trust and authorization points, communication decisions, and failure behavior needed to satisfy the requirements from the product specification.
+This document describes the system that exists in the repository today. Planned
+capabilities such as public registration, notification delivery, administration
+screens, and external company identity integration are outside the delivered
+runtime boundary.
 
----
+## Actors
 
-## 2. Requirements Driving the Architecture
+| Actor | Delivered access |
+| --- | --- |
+| Employee | Submit and view their own requests; reply to the latest staff message during `IN_PROGRESS` |
+| Department staff | Start and handle departmental requests; optionally post messages during `IN_PROGRESS` |
+| Administrator | View and update every request; optionally post messages during `IN_PROGRESS` |
+| System operator | Configure the environment, migrate the database, and provision users |
 
-The architecture is based directly on the requirements from the product specification.
+Users do not self-register. The operator provisions accounts, and stored department
+memberships determine staff authorization.
 
-| Requirement                             | Architectural Need                                                                                  |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| FR-01 — Submit a request                | The system needs an interface, backend request handling, validation, and storage.                   |
-| FR-02 — Responsible department          | A request must keep its responsible department.                                                     |
-| FR-03 / FR-04 — View and track requests | The system must retrieve a requester's submitted requests and current status.                       |
-| FR-05 — Department staff view requests  | The system must control access based on the responsible department.                                 |
-| FR-06 — View request details            | Authorized users must be able to retrieve request details they are permitted to access.             |
-| FR-07 / FR-08 — Update and resolve      | Authorized department staff must be able to change and save request status.                         |
-| FR-09 — Notify responsible department   | The system must trigger a notification when a new request requires a department's attention.        |
-| FR-10 — Notify requester                | The system must trigger a notification when an important change occurs to a request.                |
-| FR-11 — Administration                  | Authorized administrators must be able to manage departments and user roles or access permissions.  |
-| AC-05 — Unauthorized access             | Protected requests must be checked before they are viewed or modified.                              |
-| AC-06 — Required information            | Invalid or incomplete requests must not be accepted as successfully submitted.                      |
-| AC-07 / AC-08 — Notifications           | Notifications must be triggered for the correct recipients after relevant request events.           |
-| AC-09 — Administrator management        | Administrative changes must only be performed by authorized administrators and must be saved.       |
-| Security NFR                            | Only authenticated and authorized company users may access protected information.                   |
-| Usability NFR                           | The user interface should allow employees to submit and track requests without technical knowledge. |
-| Reliability / Data Integrity NFR        | Successfully submitted requests and their latest saved state must be stored reliably.               |
-| Notification Security NFR               | Notifications must only be sent to intended authorized recipients.                                  |
-
----
-
-## 3. Actors
-
-### Employee / Requester
-
-The employee:
-
-* submits an internal help request;
-* views requests they submitted;
-* views permitted request details;
-* sees the responsible department;
-* tracks the current request status;
-* receives notifications about important changes to their requests.
-
-### Service Department Staff
-
-Department staff:
-
-* views requests assigned to their department;
-* views permitted request details;
-* updates request status;
-* marks handled requests as resolved;
-* receives notifications when new requests require their department's attention.
-
-### Administrator
-
-The administrator:
-
-* manages departments;
-* manages user roles or access permissions;
-* performs administrative actions that normal employees and department staff are not authorized to perform.
-
----
-
-## 4. System Boundary
+## System context
 
 ```text
-             Employee / Requester
-             Department Staff
-               Administrator
-                    |
-                    v
-+--------------------------------------------------+
-|        INTERNAL OPERATIONS SERVICE HUB           |
-|                                                  |
-|              +-------------+                     |
-|              |   Web UI    |                     |
-|              +------+------+                     |
-|                     |                            |
-|                     v                            |
-|          +------------------------+              |
-|          |  Application Backend   |              |
-|          |                        |              |
-|          | - validation           |              |
-|          | - authorization        |              |
-|          | - request handling     |              |
-|          | - status handling      |              |
-|          | - administration       |              |
-|          | - notification trigger |              |
-|          +-----------+------------+              |
-|                      |                           |
-|             +--------+---------+                 |
-|             |                  |                 |
-|             v                  v                 |
-|   +--------------------+  +------------------+   |
-|   | Durable Request    |  | Notification     |   |
-|   | Store              |  | Service          |   |
-|   +--------------------+  +------------------+   |
-|                                                  |
-+--------------------------------------------------+
-                    |
-                    | authentication
-                    v
-          +-------------------------+
-          | Company Identity        |
-          | Provider                |
-          | External                |
-          +-------------------------+
+Employee / Staff / Administrator
+              |
+              v
+      React + TypeScript UI
+              |
+         HTTPS / JSON
+              |
+              v
+       NestJS REST API
+       |      |      |
+       |      |      +--> OpenAI Responses API (optional)
+       |      |
+       |      +---------> JWT authentication and authorization
+       |
+       +----------------> PostgreSQL through Prisma
 ```
 
-The **Web UI, Application Backend, Durable Request Store, and Notification Service** are inside the Internal Operations Service Hub.
+The React frontend never connects directly to PostgreSQL or OpenAI. All protected
+operations and AI calls pass through the NestJS backend.
 
-The **Employee, Department Staff, Administrator, and Company Identity Provider** are outside the system boundary.
+## Components and responsibilities
 
-The Company Identity Provider is an external dependency because the product specification assumes that users have some form of company identity for accessing the internal system.
+### React frontend
 
-The exact notification delivery channel is still unknown. It may later be implemented using email, in-app notifications, or another approved mechanism.
+- Collects email/password login credentials.
+- Stores the returned JWT for the active browser session.
+- Displays only requests returned by the authorized backend API.
+- Supports request creation, targeted replies to staff messages, status changes, and resolution notes.
+- Presents validated AI content as an advisory suggestion.
 
----
+The frontend improves usability but is not a security boundary.
 
-## 5. Components and Responsibilities
+### Authentication module
 
-### Web UI
+- Verifies bcrypt password hashes.
+- Issues JWTs with an eight-hour lifetime.
+- Derives the current user from the validated token.
+- Rejects missing or invalid credentials.
 
-The Web UI allows employees, department staff, and administrators to interact with the system.
+The requester identity is taken from the JWT, never from a client-supplied user ID.
 
-Responsibilities:
+### Requests module
 
-* collect request information;
-* display submitted requests;
-* display permitted request details;
-* display the responsible department and current status;
-* allow department staff to perform permitted request actions;
-* allow administrators to perform permitted administrative actions;
-* send user actions to the backend;
-* display success or failure results.
+- Validates selected departments and request content.
+- Enforces requester, department-membership, and administrator access.
+- Owns the `SUBMITTED -> IN_PROGRESS -> RESOLVED` lifecycle.
+- Uses an expected-current-status check to prevent stale updates.
+- Stores status changes transactionally with their history event.
+- Requires a resolution note for `RESOLVED`.
+- Enforces staff-led turn-taking during `IN_PROGRESS`: staff post top-level messages and the requester may reply once to the latest staff message.
+- Closes the conversation on resolution.
 
-### Application Backend
+### Request-assistance module
 
-The backend contains the main application rules.
+- Is isolated behind the application-owned `RequestInterpreter` interface.
+- Builds a bounded prompt from request text, active departments, and request types.
+- Calls the OpenAI Responses API only when the feature flag is enabled.
+- Requests strict schema-constrained output.
+- Validates enums, field relationships, department IDs, action quality, and
+  prohibited claims again at the application boundary.
+- Normalizes provider failures without exposing provider error bodies or secrets.
 
-Responsibilities:
+AI output is advisory. It cannot authenticate a user, change permissions, reassign
+a request, update its status, or resolve it.
 
-* validate required request information;
-* determine whether a user is allowed to access or modify a request;
-* create requests;
-* ensure requests have a responsible department;
-* retrieve permitted requests and request details;
-* update request status;
-* mark requests as resolved;
-* perform authorized administrative operations;
-* trigger notifications for important request events;
-* save successful changes.
+### Prisma and PostgreSQL
 
-### Durable Request Store
+- Persist users, department memberships, requests, status history, conversations,
+  resolution notes, and optional AI analyses.
+- Enforce unique identities and relationship constraints.
+- Preserve a request when AI is disabled or fails.
 
-The Durable Request Store keeps the information needed by the system, including:
-
-* the request;
-* its requester;
-* its responsible department;
-* its current status;
-* department information;
-* user roles or access permissions required by the system.
-
-Version 0.3 implements this store with PostgreSQL and Prisma. The detailed records and relationships are defined in the data model.
-
-### Notification Service
-
-The Notification Service handles notifications triggered by important request events.
-
-Responsibilities:
-
-* receive notification requests from the backend;
-* identify the intended recipient;
-* send notifications using the configured notification channel;
-* keep notification delivery separate from the main request operation.
-
-Examples include:
-
-* notifying the responsible department when a new request requires attention;
-* notifying the requester when the request status changes;
-* notifying the requester when the request is resolved.
-
-The exact notification delivery channel is still to be determined.
-
-### Company Identity Provider
-
-The Company Identity Provider confirms the identity of company users before they access protected parts of the system.
-
----
-
-## 6. Important Data Flows
-
-### Submit a Request
+## Primary request flow
 
 ```text
-Employee
-   ↓
-Web UI
-   ↓
-Application Backend
-   ↓
-Validate request
-   ↓
-Associate responsible department
-   ↓
-Durable Request Store
-   ↓
-Request saved
-   ├──────────────>Success response to employee
-   |
-   └──────────────> Notification Service
-                          ↓
-                 Notify responsible department
+1. Employee sends title, description, and selected department with a JWT.
+2. Backend authenticates the employee and validates the input.
+3. Backend loads active departments and rejects an invalid selection.
+4. PostgreSQL stores the request and initial SUBMITTED event.
+5. If AI is disabled, the saved request is returned immediately.
+6. If AI is enabled, the backend creates a PENDING analysis and calls the model.
+7. Valid output becomes a COMPLETED analysis.
+8. Invalid output or provider failure becomes a safe FAILED analysis.
+9. The request is returned in every AI outcome.
 ```
 
-This flow supports **FR-01, FR-02, FR-09, AC-01, AC-06, and AC-07**.
+The AI call occurs after durable request creation. The employee's request therefore
+survives a timeout, refusal, malformed result, or provider outage.
 
-A request is not treated as successfully submitted if required information is missing or if the request cannot be stored.
-
-The request must be stored successfully before the department notification is triggered.
-
-### View Submitted Requests
+## Status-update flow
 
 ```text
-Employee
-   ↓
-Web UI
-   ↓
-Application Backend
-   ↓
-Check access
-   ↓
-Durable Request Store
-   ↓
-Return permitted requests and details
+Department staff request
+          |
+          v
+Authenticate JWT
+          |
+          v
+Verify membership for the request's department
+          |
+          v
+Verify expected current status and allowed transition
+          |
+          v
+Transaction: update Request + create RequestStatusEvent
 ```
 
-This supports **FR-03, FR-04, FR-06, AC-02, and AC-05**.
+A stale `expectedCurrentStatus` returns `409 Conflict` rather than overwriting a
+newer change.
 
-The backend only returns information that the user is authorized to access.
+## Trust boundaries
 
-### Department Staff Handles a Request
+### Browser input is untrusted
 
-```text
-Department Staff
-      ↓
-Web UI
-      ↓
-Application Backend
-      ↓
-Check department authorization
-      ↓
-View or update request
-      ↓
-Durable Request Store
-      ↓
-Change saved
-      ├──────────────→ Success response
-      |
-      └──────────────→ Notification Service
-                              ↓
-                       Notify requester
-```
+DTO validation rejects missing, malformed, and unknown fields. Authorization does
+not rely on department IDs, requester IDs, or role claims supplied by the browser.
 
-This supports **FR-05, FR-06, FR-07, FR-08, FR-10, AC-03, AC-04, AC-05, and AC-08**.
+### Request text is untrusted model input
 
-A notification is triggered after an important request change has been successfully saved.
+Employee text may contain prompt injection. The model instructions treat it only as
+data, and application validation rejects unsupported contacts, URLs, guarantees,
+SLAs, departments, and malformed output.
 
-### Administrator Manages System Configuration
+### Model input is minimized
 
-```text
-Administrator
-      ↓
-Web UI
-      ↓
-Application Backend
-      ↓
-Check administrator authorization
-      ↓
-Update department or access permission
-      ↓
-Durable Request Store
-      ↓
-Change saved
-```
+Only the request text, selected department, active department choices, and bounded
+request types are supplied. No prewritten scenario answers are sent to the model.
+Passwords, JWTs, API keys, user identity, unrelated requests, memberships, and
+unrestricted database content are excluded.
 
-This supports **FR-11 and AC-09**.
+### Secrets remain server-side
 
-Administrative operations require administrator authorization and cannot be performed by a normal employee unless that user has the required administrative permissions.
+`JWT_SECRET`, `DATABASE_URL`, and `OPENAI_API_KEY` belong to the backend environment.
+The OpenAI key must never use a `VITE_` prefix.
 
----
+## Failure behavior
 
-## 7. Trust and Authorization
+| Failure | System behavior |
+| --- | --- |
+| Invalid login | Return an authentication error without revealing which field matched |
+| Invalid request input | Reject before treating the request as submitted |
+| Unauthorized access | Return `403 Forbidden` |
+| Stale or invalid status transition | Return `409 Conflict` |
+| Missing resolution note | Reject the resolution |
+| Reply added after resolution | Return `409 Conflict`; keep the conversation read-only |
+| Requester initiates a message | Return `400 Bad Request`; wait for a staff message |
+| Staff messages before starting work | Return `409 Conflict`; move the request to `IN_PROGRESS` first |
+| Duplicate reply to one staff message | Return `409 Conflict` |
+| Reply to an outdated staff message | Return `400 Bad Request`; answer the latest message |
+| Database unavailable | Do not report the operation as successful |
+| AI disabled | Save and return the normal request without an analysis |
+| AI timeout, refusal, outage, or invalid output | Preserve the request and record a safe failed analysis |
 
-The system must not rely only on the Web UI to decide whether a user is allowed to perform an action.
+## External dependencies
 
-The backend checks the user's identity and permissions before allowing access to protected request information or administrative operations.
+- PostgreSQL is required for application operation.
+- OpenAI is optional and controlled by `AI_REQUESTS_ENABLED`.
+- Docker Compose provides PostgreSQL for local development only.
+- No external notification provider or company identity provider is currently
+  integrated.
 
-```text
-User request
-     ↓
-Authentication
-     ↓
-Authorization
-     ↓
-Permitted operation
-```
+## Verification strategy
 
-Authentication determines **who the user is**.
+- Unit tests cover lifecycle rules, bounded model context, provider parsing,
+  and application-level AI validation.
+- PostgreSQL integration tests cover persistence, AI success/failure isolation,
+  conversations, and required resolution notes.
+- Playwright covers the employee-to-staff browser journey and authorization errors.
+- A separate live-model evaluation checks probabilistic AI behavior without making
+  ordinary tests depend on an API key.
 
-Authorization determines **what the user is allowed to view or change**.
+## Related documents
 
-Examples:
-
-* an employee may access requests they are permitted to see;
-* department staff may manage requests assigned to their department when authorized;
-* administrative operations require administrator-level authorization.
-
-Notifications must also be directed only to intended authorized recipients.
-
-This supports the **Security NFR, Notification Security NFR, and AC-05**.
-
----
-
-## 8. Communication Decisions
-
-Core user actions use synchronous request/response communication between the Web UI and Application Backend.
-
-This is appropriate because users need an immediate response when they:
-
-* submit a request;
-* access a request;
-* update a request's status;
-* mark a request as resolved;
-* perform an administrative action.
-
-Notifications are handled separately from the main request operation.
-
-Notification delivery may use asynchronous communication after the main operation has completed successfully.
-
-For example:
-
-```text
-Status update
-     ↓
-Save change
-     ↓
-Return success
-     ↓
-Send notification separately
-```
-
-This prevents notification delivery from unnecessarily delaying the user's main operation.
-
----
-
-## 9. External Dependency
-
-The main external dependency currently identified by the architecture is the **Company Identity Provider**.
-
-The Company Identity Provider is used to confirm company user identity.
-
-If the user's identity cannot be confirmed, the system must not allow protected access.
-
-The exact notification delivery channel has not yet been selected. Therefore, no external email or notification provider is assumed at this stage.
-
-If a future decision requires an external notification provider, that provider will become an additional external dependency.
-
----
-
-## 10. Failure Behavior
-
-### Request or Status Change Cannot Be Stored
-
-If a request or status change cannot be stored successfully, the system must not report the operation as successful.
-
-This follows from the Reliability / Data Integrity NFR.
-
-### Missing Required Information
-
-If required information is missing, the backend rejects the submission.
-
-This follows from AC-06.
-
-### Unauthorized Access
-
-If a user is not authorized to access or modify a request, the backend prevents the operation.
-
-This follows from AC-05 and the Security NFR.
-
-### Authentication Failure
-
-If the system cannot verify the user's company identity, protected access is denied.
-
-### Unauthorized Administrative Action
-
-If a user attempts to perform an administrative action without the required administrator permission, the backend prevents the operation.
-
-### Notification Delivery Failure
-
-If a notification cannot be delivered, the successfully saved request or status change must remain saved.
-
-A notification failure must not cause an otherwise successful request submission or status update to be treated as failed.
-
-The notification failure should be recorded so that it can be retried or investigated without losing the underlying request change.
-
-You should now be able to select the writing block and copy the entire document much more easily.
+- [Product specification](product-spec.md)
+- [Data model](data-model.md)
+- [Backend API guide](backend-api-guide.md)
+- [Status-history decision](decisions/ADR-001.md)
+- [Detailed AI delivery and evaluation design](delivery/week4-ai-assisted-requests.md)
