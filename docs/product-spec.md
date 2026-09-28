@@ -65,6 +65,7 @@ memberships, and administrator access through the repository script.
 - **FR-12:** After moving a request to `IN_PROGRESS`, responsible department staff or an administrator may start an optional conversation message. The requester may reply once to the latest staff message but may not initiate a separate message or answer an outdated message. `SUBMITTED` and `RESOLVED` requests do not accept messages.
 - **FR-13:** Resolving a request must require a written resolution note that is visible to the requester and responsible staff.
 - **FR-14:** Users must be explicitly provisioned; the application must not expose public registration, shared demo passwords, or plaintext stored passwords.
+- **FR-15:** Request lists must prioritize the latest meaningful activity, including status changes, staff messages, and employee replies.
 
 ## 5. Non-Functional Requirements
 
@@ -73,6 +74,7 @@ memberships, and administrator access through the repository script.
 - **Reliability / Data Integrity:** Once a request or status update is successfully saved, its latest saved state must remain available when the request is retrieved again.
 - **AI Reliability:** AI failure must not undo or prevent an otherwise valid request submission.
 - **AI Data Minimization:** Only request text and the bounded department and request-type choices needed for interpretation may be sent to the AI provider.
+- **Operability:** The deployed API must expose public liveness and database-readiness signals without revealing secrets.
 
 ## 6. Assumptions, Constraints, and Unknowns
 
@@ -106,7 +108,6 @@ For the current scope, the product does not include:
 - operational priority queues, SLA timers, or escalation automation;
 - automatic, unreviewed AI routing or resolution;
 - advanced analytics or reporting;
-- production hosting infrastructure;
 - integrations or additional features that have not been specified.
 
 ## 8. Acceptance Criteria
@@ -194,3 +195,16 @@ For the current scope, the product does not include:
 **Given** an operator provisions a user with a password and optional department memberships,
 **when** the user signs in with those credentials,
 **then** the resulting access is derived from the stored account, membership, and administrator settings.
+
+### AC-15 — Recent Activity Ordering
+
+**Given** an authorized user can see multiple requests,
+**when** a status change, staff message, or employee reply updates one request,
+**then** that request appears before requests with older activity.
+
+### AC-16 — Release Readiness
+
+**Given** the API process and PostgreSQL are available,
+**when** the deployment platform calls the readiness endpoint,
+**then** it receives a successful response; when PostgreSQL is unavailable,
+readiness fails without exposing credentials or connection details.

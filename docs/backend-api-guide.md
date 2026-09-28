@@ -19,6 +19,8 @@ States cannot be skipped or moved backward. `expectedCurrentStatus` prevents an 
 
 | Method | Endpoint | Access |
 | --- | --- | --- |
+| `GET` | `/api/health/live` | Public; API process liveness |
+| `GET` | `/api/health/ready` | Public; API and PostgreSQL readiness |
 | `POST` | `/api/auth/login` | Public |
 | `GET` | `/api/departments` | Authenticated user |
 | `GET` | `/api/requests/lifecycle` | Authenticated user |
@@ -37,5 +39,10 @@ before a status change. Once the request is
 `RESOLVED`, the API returns `409 Conflict` for new messages. Staff attempts while a
 request is still `SUBMITTED` also return `409 Conflict`. A resolution note is
 stored separately so the final outcome remains prominent and auditable.
+
+The deployment platform uses `/api/health/ready` as its HTTP health check. A
+database failure returns `503 Service Unavailable` with a bounded status response;
+connection strings and provider errors are never returned. `/api/health/live` does
+not query dependencies and confirms only that the API process is running.
 
 Use Swagger for exact request bodies, response schemas, and validation responses. Setup and test commands are in the repository `README.md`.

@@ -20,6 +20,8 @@ const SYSTEM_INSTRUCTIONS = [
   'The request is already submitted. Never suggest submitting it again or contacting a department through the Operations Hub.',
   'Do not ask for information already present in the request.',
   'Ask one concise clarification question only when the answer materially changes routing, safety, or the next steps.',
+  'Ask one clarification when an IT symptom is too broad to choose a useful next diagnostic step, such as a device that only "stopped working" or weak Wi-Fi with no scope or location.',
+  'Ask one clarification when the request explicitly leaves multiple causes or responsible departments plausible, such as account access versus payroll processing.',
   'When safe classification is not possible, use OTHER and ask exactly one concise clarification question.',
   'Use FINANCE_PAYMENT_DELAY when money is delayed but the request does not establish whether it is payroll or an expense reimbursement.',
   'Keep classification and routing consistent: IT_* routes to IT, HR_* routes to HR, and FINANCE_* routes to Finance.',

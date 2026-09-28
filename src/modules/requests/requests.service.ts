@@ -138,7 +138,7 @@ export class RequestsService {
     const requests = await this.prisma.request.findMany({
       where,
       include: requestInclude,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
     return requests.map((request) => this.toResponse(request));
   }
@@ -274,13 +274,19 @@ export class RequestsService {
     }
 
     try {
-      await this.prisma.requestComment.create({
-        data: {
-          requestId,
-          authorId: user.id,
-          replyToCommentId: isRequester ? input.replyToCommentId : null,
-          body: input.body.trim(),
-        },
+      await this.prisma.$transaction(async (transaction) => {
+        await transaction.requestComment.create({
+          data: {
+            requestId,
+            authorId: user.id,
+            replyToCommentId: isRequester ? input.replyToCommentId : null,
+            body: input.body.trim(),
+          },
+        });
+        await transaction.request.update({
+          where: { id: requestId },
+          data: { updatedAt: new Date() },
+        });
       });
     } catch (error) {
       if (

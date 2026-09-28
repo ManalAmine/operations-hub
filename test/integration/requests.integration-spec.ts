@@ -196,6 +196,54 @@ describe('RequestsService database integration', () => {
     expect(resolved.comments).toHaveLength(0);
   });
 
+  it('moves a request with a new message to the top of the request list', async () => {
+    const employee = {
+      id: userId,
+      name: 'Integration Employee',
+      email: `integration-${suffix}@example.com`,
+      isAdmin: false,
+      departmentIds: [],
+    };
+    const staff = {
+      id: staffId,
+      name: 'Integration Staff',
+      email: `integration-staff-${suffix}@example.com`,
+      isAdmin: false,
+      departmentIds: [departmentId],
+    };
+    const activeRequest = await service.submit(employee, {
+      title: 'Request receiving a new message',
+      description: 'This request should move above the newer inactive request.',
+      departmentId,
+    });
+    await service.updateStatus(staff, activeRequest.id, {
+      status: 'IN_PROGRESS',
+      expectedCurrentStatus: 'SUBMITTED',
+    });
+    const inactiveRequest = await service.submit(employee, {
+      title: 'Newer request without activity',
+      description: 'This request should move below one with a new message.',
+      departmentId,
+    });
+    await prisma.request.update({
+      where: { id: activeRequest.id },
+      data: { updatedAt: new Date('2020-01-01T00:00:00.000Z') },
+    });
+    await prisma.request.update({
+      where: { id: inactiveRequest.id },
+      data: { updatedAt: new Date('2020-01-02T00:00:00.000Z') },
+    });
+
+    await service.addComment(staff, activeRequest.id, {
+      body: 'This new activity should move the request to the top.',
+    });
+
+    const requests = await service.findAll(employee);
+    expect(requests.findIndex((request) => request.id === activeRequest.id)).toBeLessThan(
+      requests.findIndex((request) => request.id === inactiveRequest.id),
+    );
+  });
+
   it('supports optional replies while active and closes the conversation after resolution', async () => {
     const employee = {
       id: userId,

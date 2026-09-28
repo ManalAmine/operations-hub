@@ -141,7 +141,7 @@ The backend sends only the information required for interpretation.
 - the allowlisted active departments (`department-it`, `department-hr`, and
   `department-finance` in the current seed data);
 - the allowlisted request-type enum;
-- a prompt version, currently `request-interpreter-v8`.
+- a prompt version, currently `request-interpreter-v9`.
 
 ### Do not send
 
@@ -357,7 +357,7 @@ The API response now includes:
     "clarificationQuestion": null,
     "suggestedNextSteps": ["..."],
     "model": "gpt-5.6-terra",
-    "promptVersion": "request-interpreter-v8"
+    "promptVersion": "request-interpreter-v9"
   }
 }
 ```

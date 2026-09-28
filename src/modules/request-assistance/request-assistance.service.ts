@@ -7,7 +7,7 @@ import {
 } from './request-interpreter';
 import { TrustedRequestContextService } from './trusted-request-context.service';
 
-export const REQUEST_ASSISTANCE_PROMPT_VERSION = 'request-interpreter-v8';
+export const REQUEST_ASSISTANCE_PROMPT_VERSION = 'request-interpreter-v9';
 
 @Injectable()
 export class RequestAssistanceService {

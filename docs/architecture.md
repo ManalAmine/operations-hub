@@ -99,6 +99,35 @@ a request, update its status, or resolve it.
 - Enforce unique identities and relationship constraints.
 - Preserve a request when AI is disabled or fails.
 
+### Health module
+
+- Exposes process liveness at `/api/health/live`.
+- Checks PostgreSQL readiness at `/api/health/ready`.
+- Returns a bounded `503` response when the database is unavailable without
+  exposing connection details.
+- Supplies the deployment platform's release and runtime health signal.
+
+## Deployment topology
+
+```text
+Browser
+   |
+   v
+Render Static Site (React/Vite)
+   |
+   v
+Render Web Service (NestJS) ---> OpenAI Responses API (feature flagged)
+   |
+   v
+Render PostgreSQL
+```
+
+`render.yaml` is the release configuration for all three Render resources. The API
+and database share the Frankfurt region, while the frontend is served through
+Render's static-site CDN. The database URL is injected from the managed database;
+JWT and OpenAI credentials are never stored in the repository. Automatic deploys
+are disabled so the operator deliberately releases a reviewed commit.
+
 ## Primary request flow
 
 ```text
@@ -177,6 +206,7 @@ The OpenAI key must never use a `VITE_` prefix.
 | Duplicate reply to one staff message | Return `409 Conflict` |
 | Reply to an outdated staff message | Return `400 Bad Request`; answer the latest message |
 | Database unavailable | Do not report the operation as successful |
+| Readiness database probe fails | Return `503`; Render withholds or restarts the unhealthy instance |
 | AI disabled | Save and return the normal request without an analysis |
 | AI timeout, refusal, outage, or invalid output | Preserve the request and record a safe failed analysis |
 
@@ -185,6 +215,8 @@ The OpenAI key must never use a `VITE_` prefix.
 - PostgreSQL is required for application operation.
 - OpenAI is optional and controlled by `AI_REQUESTS_ENABLED`.
 - Docker Compose provides PostgreSQL for local development only.
+- Render hosts the public static frontend, API web service, and managed PostgreSQL
+  database according to `render.yaml`.
 - No external notification provider or company identity provider is currently
   integrated.
 
@@ -197,6 +229,9 @@ The OpenAI key must never use a `VITE_` prefix.
 - Playwright covers the employee-to-staff browser journey and authorization errors.
 - A separate live-model evaluation checks probabilistic AI behavior without making
   ordinary tests depend on an API key.
+- `npm run release:gate:core` combines deterministic tests, database integration,
+  production builds, and the Playwright journey; `npm run release:gate` adds the
+  live-model evaluation.
 
 ## Related documents
 
@@ -205,3 +240,4 @@ The OpenAI key must never use a `VITE_` prefix.
 - [Backend API guide](backend-api-guide.md)
 - [Status-history decision](decisions/ADR-001.md)
 - [Detailed AI delivery and evaluation design](delivery/week4-ai-assisted-requests.md)
+- [Week 2 engineering ownership evidence](delivery/week2-agentic-workflow.md)

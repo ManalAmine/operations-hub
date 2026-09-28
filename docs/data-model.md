@@ -51,12 +51,15 @@ Represents one employee service request.
 | `departmentId` | Responsible department selected at submission |
 | `title`, `description` | Employee-provided request content |
 | `currentStatus` | Current workflow state |
-| `createdAt`, `updatedAt` | Audit timestamps |
+| `createdAt`, `updatedAt` | Creation time and latest meaningful request activity |
 | `resolvedAt` | Time of successful resolution |
 | `resolutionNote` | Required final outcome when resolved |
 
 `currentStatus` is stored for efficient queues while the complete change history is
-preserved in `RequestStatusEvent`.
+preserved in `RequestStatusEvent`. Request queries sort by `updatedAt` descending.
+Creating a staff message or employee reply updates the parent request timestamp in
+the same transaction, so recent activity moves the request to the top without
+changing its workflow state.
 
 ### RequestStatusEvent
 
