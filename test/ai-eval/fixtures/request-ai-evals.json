@@ -96,7 +96,7 @@
     "expectedTypes": ["HR_EMPLOYEE_SUPPORT"],
     "expectedSuggestedDepartmentId": "department-hr",
     "minimumNextSteps": 1,
-    "requiredText": ["notify"],
+    "requiredAnyText": [["notify", "inform", "update"]],
     "forbiddenText": ["diagnosis", "guaranteed", "http://", "https://"]
   }
 ]

@@ -23,6 +23,7 @@ without making the root README look like a single-week submission.
 | [Week 2 engineering ownership](delivery/week2-agentic-workflow.md) | Lifecycle rules, valid and invalid behavior, decisions, and proof map |
 | [Week 3 full-stack delivery](delivery/week3-full-stack-delivery.md) | Original authenticated request workflow and full-stack test evidence |
 | [Week 4 AI-assisted delivery](delivery/week4-ai-assisted-requests.md) | AI boundary, structured output, safety, persistence, evaluation, and rollout design |
+| [Week 5 release operations](delivery/week5-release-operations.md) | Live deployment, release gate, health signals, recovery, smoke testing, and handoff |
 
 ## Source-of-truth order
 

@@ -408,6 +408,10 @@ Do not assert exact prose in live-model evaluations. Assert enums, required fact
 forbidden claims, clarification behavior, generated action quality, length limits, and
 backend acceptance.
 
+When several phrases express the same required behavior, a case accepts a bounded
+set of semantic alternatives instead of requiring one brittle synonym. For example,
+`notify`, `inform`, or `update` all demonstrate the intended communication action.
+
 ### Evaluation cases
 
 | ID | Scenario and input | Expected evidence |

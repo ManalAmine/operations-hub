@@ -17,6 +17,7 @@ type EvaluationCase = {
   requiredContextKeys?: string[];
   minimumNextSteps?: number;
   requiredText?: string[];
+  requiredAnyText?: string[][];
   forbiddenText: string[];
 };
 
@@ -75,6 +76,11 @@ describe('configured OpenAI request interpretation', () => {
       }
       for (const required of evaluation.requiredText ?? []) {
         expect(displayedText).toContain(required.toLowerCase());
+      }
+      for (const alternatives of evaluation.requiredAnyText ?? []) {
+        expect(
+          alternatives.some((term) => displayedText.includes(term.toLowerCase())),
+        ).toBe(true);
       }
       for (const forbidden of evaluation.forbiddenText) {
         expect(displayedText).not.toContain(forbidden.toLowerCase());

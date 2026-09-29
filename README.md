@@ -9,6 +9,29 @@ product specification, architecture, relational data modelling, full-stack
 implementation, secure AI integration, evaluation, automated testing, and
 deployment preparation.
 
+## Live application and demo access
+
+- Live application: <https://operations-hub-manalamine.onrender.com>
+- Backend API: <https://operations-hub-api-manalamine.onrender.com/api>
+- Swagger: <https://operations-hub-api-manalamine.onrender.com/api/docs>
+- Liveness: <https://operations-hub-api-manalamine.onrender.com/api/health/live>
+- Readiness: <https://operations-hub-api-manalamine.onrender.com/api/health/ready>
+
+All production demonstration accounts use the demo-only password
+`OperationsHubpass123`.
+
+| Account | Role and access |
+| --- | --- |
+| `employee@example.com` | Employee; submits and tracks personal requests |
+| `it.staff@example.com` | IT staff; handles only IT requests |
+| `hr.staff@example.com` | HR staff; handles only HR requests |
+| `finance.staff@example.com` | Finance staff; handles only Finance requests |
+
+Recommended critical journey: sign in as the employee, review the AI-assisted VPN
+request, then sign in as IT staff to review its completed lifecycle and resolution.
+HR and Finance accounts demonstrate that staff cannot see another department's
+requests.
+
 ## What the application does
 
 - Employees submit requests and track their progress.
@@ -63,7 +86,8 @@ Validate schema, domain rules, and safe content
 The integration includes data minimization, prompt-injection resistance,
 schema-constrained output, application-side safety validation,
 timeouts, failure isolation, prompt versioning, and a versioned model evaluation
-set. It is disabled by default and the core application works without an API key.
+set. Local setup disables it by default, while the production release enables it
+with a server-side key. The core application continues to work without an API key.
 The model generates the guidance rather than selecting prewritten scenario answers.
 If no safe next step can be generated, the interface does not fabricate one.
 
@@ -79,7 +103,7 @@ If no safe next step can be generated, the interface does not fabricate one.
 | Testing | Jest, PostgreSQL integration tests, Playwright E2E |
 | Local infrastructure | Docker Compose |
 
-## Quick start
+## Engineer quick start
 
 Follow these steps from the repository root. The first setup creates the database
 and user accounts. On later runs, you normally only need to start Docker and the
@@ -406,6 +430,39 @@ Start with the [documentation index](docs/README.md), then use:
 - [Architecture decision records](docs/decisions/ADR-001.md)
 - [Full-stack delivery history](docs/delivery/week3-full-stack-delivery.md)
 - [AI-assisted delivery and evaluation design](docs/delivery/week4-ai-assisted-requests.md)
+- [Release and production operations](docs/delivery/week5-release-operations.md)
+
+## Evidence map
+
+| Area | Direct evidence |
+| --- | --- |
+| Week 1: design | [Product specification](docs/product-spec.md), [architecture](docs/architecture.md), [data model](docs/data-model.md), and [ADR-001](docs/decisions/ADR-001.md) |
+| Week 2: engineering ownership | [Lifecycle rules, decisions, and proof map](docs/delivery/week2-agentic-workflow.md) |
+| Week 3: full stack | [Full-stack delivery evidence](docs/delivery/week3-full-stack-delivery.md), integration tests, and Playwright E2E |
+| Week 4: production AI | [AI boundary, safety, failure behavior, and evaluation](docs/delivery/week4-ai-assisted-requests.md) |
+| Week 5: release ownership | [Deployment, health, logs, failure recovery, and smoke proof](docs/delivery/week5-release-operations.md) |
+
+## Production operations
+
+The Render Blueprint in [`render.yaml`](render.yaml) defines three managed
+resources: PostgreSQL, the NestJS web service, and the React static site. The API
+runs migrations and the idempotent department seed before starting. Automatic
+deploys are disabled so the submitted release remains tied to an intentional Git
+commit.
+
+Use these signals in order:
+
+1. Open `/api/health/live` to confirm the Node process is running.
+2. Open `/api/health/ready` to confirm PostgreSQL is reachable.
+3. Inspect the API's Render **Logs** for migration, startup, or provider failures.
+4. Inspect Render **Metrics** for service and database resource pressure.
+5. Run the critical journey above after a deploy or recovery.
+
+The free API may sleep when inactive, so the first request can take roughly a
+minute. The free PostgreSQL instance is scheduled to expire on **October 28,
+2026** unless upgraded. It must remain available through the capstone defense.
+Detailed release, rollback, credential-rotation, and recovery instructions are in
+the [Week 5 operations runbook](docs/delivery/week5-release-operations.md).
 
 ## Production deployment checklist
 
